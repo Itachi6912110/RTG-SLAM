@@ -1,5 +1,6 @@
 parent: "configs/replica_base.yaml"
 save_step: 400
+device_list: [0]
 
 frame_start: 0
 frame_step: 0
