@@ -17,6 +17,7 @@ from SLAM.multiprocess.mapper import Mapping
 from SLAM.multiprocess.tracker import Tracker
 from SLAM.utils import *
 from SLAM.eval import eval_frame
+from SLAM import arch_stats_utils
 from utils.general_utils import safe_state
 from utils.monitor import Recorder
 
@@ -53,6 +54,7 @@ def main():
     tracker_time_sum = 0
     mapper_time_sum = 0
 
+    arch_stats_utils.init(args)
     # start SLAM
     for frame_id, frame_info in enumerate(dataset.scene_info.train_cameras):
         curr_frame = loadCam(
@@ -60,6 +62,7 @@ def main():
         )
 
         print("\n========== curr frame is: %d ==========\n" % frame_id)
+        arch_stats_utils.set_frame(frame_id)
         move_to_gpu(curr_frame)
         start_time = time.time()
         # tracker process
@@ -143,6 +146,7 @@ def main():
     time_recorder.save(args.save_path)
     gaussian_map.time += 1
     
+    arch_stats_utils.close()
     if args.pcd_densify:    
         densify_pcd = gaussian_map.stable_pointcloud.densify(1, 30, 5)
         o3d.io.write_point_cloud(

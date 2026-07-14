@@ -10,6 +10,7 @@ from collections import deque
 from scene.cameras import Camera
 from SLAM.gaussian_pointcloud import *
 from SLAM.render import Renderer
+from SLAM import arch_stats_utils
 from SLAM.utils import merge_ply, rot_compare, trans_compare, bbox_filter
 from utils.loss_utils import l1_loss, l2_loss, ssim
 from cuda_utils._C import accumulate_gaussian_error
@@ -175,6 +176,7 @@ class Mapping(object):
         with tqdm(total=gaussian_update_iter, desc="map update") as pbar:
             for iter in range(gaussian_update_iter):
                 self.iter = iter
+                arch_stats_utils.set_itr(iter)
                 random_index = random.randint(0, len(self.processed_frames) - 1)
                 if iter > gaussian_update_iter / 2:
                     random_index = -1
@@ -187,6 +189,7 @@ class Mapping(object):
                     opt_frame,
                     self.global_params,
                     tile_mask=opt_tile_mask,
+                    stats_tag="map_local",
                 )
                 image_input = {
                     "color_map": devF(opt_frame_map["color_map"]),
@@ -450,6 +453,7 @@ class Mapping(object):
         loss = total_loss
         (loss + attach_loss).backward()
         self.optimizer.step()
+        arch_stats_utils.notify_param_change("opt_step")
 
         # update confidence by grad
         grad_mask = (pointcloud._features_dc.grad.abs() != 0).any(dim=-1)
@@ -472,9 +476,11 @@ class Mapping(object):
         self, frame, global_opt=False, sample_ratio=-1, unstable=True
     ):
         if unstable:
-            render_output = self.renderer.render(frame, self.unstable_params)
+            render_output = self.renderer.render(frame, self.unstable_params,
+                                                 stats_tag="eval_range_unstable")
         else:
-            render_output = self.renderer.render(frame, self.stable_params)
+            render_output = self.renderer.render(frame, self.stable_params,
+                                                 stats_tag="eval_range_stable")
         unstable_T_map = render_output["T_map"]
 
         if global_opt:
@@ -513,7 +519,8 @@ class Mapping(object):
         # check error by backprojection
         check_frame = self.processed_frames[-1]
         check_map = self.processed_map[-1]
-        render_output = self.renderer.render(check_frame, self.global_params)
+        render_output = self.renderer.render(check_frame, self.global_params,
+                                             stats_tag="error_remove")
         # [unstable, stable]
         unstable_points_num = self.get_unstable_num
         stable_points_num = self.get_stable_num
@@ -679,6 +686,7 @@ class Mapping(object):
         with tqdm(total=total_iter, desc="global optimization") as pbar:
             for iter in range(total_iter):
                 self.iter = iter
+                arch_stats_utils.set_itr(iter)
                 random_index = random.randint(0, select_keyframe_num - 1)
                 frame_input = select_frame[random_index]
                 image_input = select_map[random_index]
@@ -691,6 +699,7 @@ class Mapping(object):
                     frame_input,
                     self.stable_params,
                     tile_mask=select_tile_mask[random_index],
+                    stats_tag="map_global",
                 )
                 loss, reported_losses = self.loss_update(
                     render_ouput,
@@ -849,6 +858,7 @@ class Mapping(object):
         stable_render_output = self.renderer.render(
             frame,
             self.stable_params,
+            stats_tag="attach",
         )
 
         stable_index = stable_render_output["color_index_map"].permute(1, 2, 0)
@@ -983,6 +993,7 @@ class Mapping(object):
         render_output = self.renderer.render(
             frame,
             self.global_params,
+            stats_tag="frame_render",
         )
         self.model_map["render_color"] = render_output["render"].permute(1, 2, 0)
         self.model_map["render_depth"] = render_output["depth"].permute(1, 2, 0)

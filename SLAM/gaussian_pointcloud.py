@@ -3,6 +3,7 @@ from plyfile import PlyData, PlyElement
 from simple_knn._C import distCUDA2
 from torch import nn
 
+from SLAM import arch_stats_utils
 from SLAM.utils import *
 from utils.general_utils import (
     build_rotation,
@@ -204,6 +205,7 @@ class GaussianPointCloud(object):
         self._add_tick = self._add_tick[~delte_mask]
         self._depth_error_counter = self._depth_error_counter[~delte_mask]
         self._color_error_counter = self._color_error_counter[~delte_mask]
+        arch_stats_utils.notify_scene_change("delete")
 
     def remove(self, remove_mask):
         xyz = self._xyz[remove_mask]
@@ -301,6 +303,7 @@ class GaussianPointCloud(object):
         self._color_error_counter = torch.cat(
             [self._color_error_counter, paramters["color_error_counter"]]
         )
+        arch_stats_utils.notify_scene_change("cat")
 
     def add_empty_points(self, xyz, normal, color, time):
         """

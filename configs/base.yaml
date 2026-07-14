@@ -2,6 +2,14 @@ parent: None
 quiet: False
 device_list: [0]
 save_path: "output/replica_test/debug"
+# gs_stats workload probing -> <save_path>/arch_stats/ (see tools/gs_stats)
+arch_stats:
+  enabled: False
+  bvh_enabled: True
+  bvh_scale_factor: 3.0
+  bvh_guard_band: 0.0
+  bvh_phases: ["frame_render"]
+  flush_every: 200
 use_tensorboard: True
 record_mem: False
 verbose: False

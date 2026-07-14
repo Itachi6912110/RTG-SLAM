@@ -1,0 +1,9 @@
+parent: "configs/replica/office0.yaml"
+save_path: "output/dataset/Replica/office0_arch"
+arch_stats:
+  enabled: True
+  bvh_enabled: True
+  bvh_scale_factor: 3.0
+  bvh_guard_band: 0.0
+  bvh_phases: ["frame_render"]
+  flush_every: 200

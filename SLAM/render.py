@@ -4,6 +4,9 @@ import torch
 
 from scene.cameras import Camera
 from SLAM.utils import devF, devI
+from SLAM import arch_stats_utils
+from types import SimpleNamespace
+import diff_gaussian_rasterization_depth as _dgr_depth
 
 from diff_gaussian_rasterization_depth import (
     GaussianRasterizationSettings as GaussianRasterizationSettings_depth,
@@ -62,7 +65,9 @@ class Renderer:
         viewpoint_camera: Camera,
         gaussian_data,
         tile_mask=None,
+        stats_tag=None,
     ):
+        partial_render = tile_mask is not None
         tanfovx = math.tan(viewpoint_camera.FoVx * 0.5)
         tanfovy = math.tan(viewpoint_camera.FoVy * 0.5)
         self.raster_settings = GaussianRasterizationSettings_depth(
@@ -142,4 +147,19 @@ class Renderer:
             "depth_hit_weight": depth_hit_weight,
             "T_map": T_map,
         }
+        if arch_stats_utils.enabled() and stats_tag is not None:
+            radii = render_results[7]
+            results["radii"] = radii
+            results["visibility_filter"] = radii > 0
+            stats = _dgr_depth.get_last_stats()
+            if stats is not None:
+                results.update(stats)
+            arch_stats_utils.record_render(
+                results, stats_tag, viewpoint_camera,
+                n_total=int(means3D.shape[0]),
+                model_like=SimpleNamespace(get_xyz=means3D,
+                                           get_scaling=scales,
+                                           get_rotation=rotations),
+                partial=partial_render,
+                n_masked_tiles=int(tile_mask.sum().item()))
         return results

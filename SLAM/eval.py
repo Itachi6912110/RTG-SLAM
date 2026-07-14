@@ -247,7 +247,7 @@ def eval_frame(
             os.makedirs(render_save_path, exist_ok=True)
             with torch.no_grad():
                 render_output = mapping.renderer.render(
-                    cam, mapping.global_params
+                    cam, mapping.global_params, stats_tag="eval"
                 )
 
             pic_loss = eval_picture(
